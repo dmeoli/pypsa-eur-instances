@@ -1,11 +1,23 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# - - - - - - - - - - - - - - - - TSSBSCfg.txt- - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - BSCfg-fast.txt- - - - - - - - - - - - - - -
 #
-# A txt description of a BlockSolverConfig for a TSSBSolver
+# The speed-oriented sibling of BSCfg.txt: same Solver, same relaxation, but
+# the presolve is left on and the numerical focus at its default. BSCfg.txt
+# trades those two for a stable optimal vertex, which the linearization of the
+# InvestmentFunction rests on; this file trades the stability back for time,
+# and asks for run-to-run comparability from a fixed Seed instead.
 #
+# Which of the two to use is a property of the run, not of the instance: take
+# BSCfg.txt when the linearization must be reproducible across solvers, and
+# this one when the number that matters is the wall clock. On the monolithic
+# TwoStageStochasticBlock LP the two settings are worth 2.61 work units
+# against 70.05, so the difference is not a detail.
+#
+#   Antonio Frangioni
 #   Donato Meoli
 #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# BlockSolverConfig - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 BlockSolverConfig     # exact type of the Configuration object
@@ -14,45 +26,39 @@ BlockSolverConfig     # exact type of the Configuration object
 
 1  # number of (the names of) Solver in this BlockSolverConfig
 # now all the names of the Solver - - - - - - - - - - - - - - - - - - - - - -
-GRBMILPSolver    # name of Solver
+GRBMILPSolver     # name of Solver
 
 1  # number of ComputeConfig in this BlockSolverConfig
 
 # now all the ComputeConfig
 # 1st ComputeConfig - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# ComputeConfig of the :MILPSolver
 
 ComputeConfig # exact type of the ComputeConfig object
 
 1  # f_diff == 0 ==> all non-provided parameters are set to the default value
    # f_diff == 1 ==> all non-provided parameters are not changed
 
-7  # number of integer parameters
+4  # number of integer parameters
 
 # now all the integer parameters
-intLogVerb               1 # log verbosity
-Method                   2 # barrier: the default concurrent LP races the dual
-                           # simplex against it and leaves it a third of the cores
-Crossover                0 # a basis is not needed, this is a pure LP
-PreDual                  0 # solve the primal, never dualize
-AggFill                  0 # no fill-in from presolve aggregation: it halves the
-                           # nonzeros of the barrier factorization
-Seed                   123 # so that two runs are comparable
-Threads                 32 # the same core count the reference run is given
-# GURO_PAR_BARDENSETHRESH 200 # how dense a column has to be to be treated as
-                           # such; uncomment it, and make the count above 8,
-                           # where MILPSolver knows the name
+intLogVerb          0    # LogVerb, log verbosity of the MILPSolver
+intRelaxIntVars     1    # nonzero if the continuous relaxation is solved
+intCutSepPar        7    # separate user cuts + lazy constraints
 
-2 # number of double parameters
+# All specific GUROBI parameter
+Seed              123    # two runs of this file are comparable
+
+0  # number of double parameters
 
 # now all the double parameters
-dblMaxTime 86400.0
-BarConvTol 1e-05           # the accuracy the reference run asks for
+# [none]
 
 0 # number of string parameters
 
 # now all the string parameters
-#strOutputFile	tssb.lp
+# [none]
+
+#strOutputFile uc_lp.lp
 
 0 # number of vector-of-int parameters
 
@@ -77,5 +83,5 @@ BarConvTol 1e-05           # the accuracy the reference run asks for
 # end of BlockSolverConfig- - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# - - - - - - - - - - - - - - - END TSSBSCfg.txt- - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - END BSCfg-fast.txt- - - - - - - - - - - - - -
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
