@@ -19,6 +19,7 @@ import pandas as pd
 import xarray as xr
 
 logger = logging.getLogger(__name__)
+SMSPP_BENCHMARK_SUFFIX = ".smspp"
 
 STATUS_RE = re.compile(
     r"Solving status ['\"](?P<status>[^'\"]+)['\"] "
@@ -102,7 +103,11 @@ def benchmark_files(root: Path) -> list[Path]:
     paths: list[Path] = []
     for rule_dir in ["solve_network", "solve_sector_network"]:
         paths.extend(root.glob(f"**/benchmarks/{rule_dir}/*"))
-    return sorted(path for path in paths if path.is_file())
+    return sorted(
+        path
+        for path in paths
+        if path.is_file() and not path.name.endswith(SMSPP_BENCHMARK_SUFFIX)
+    )
 
 
 def read_benchmark(path: Path) -> dict:
@@ -203,6 +208,13 @@ def collect_benchmarks(roots: list[Path]) -> pd.DataFrame:
             row.update(network_metadata)
             row.update(parse_benchmark_name(path.name, row.get("solver")))
             row.update(read_benchmark(path))
+            smspp_benchmark = path.with_name(path.name + SMSPP_BENCHMARK_SUFFIX)
+            if smspp_benchmark.exists():
+                smspp_timings = read_benchmark(smspp_benchmark)
+                row["smspp_optimization_s"] = smspp_timings["s"]
+                row["smspp_computational_s"] = smspp_timings.get(
+                    "computational_time", pd.NA
+                )
             row.update(read_solve_outcome(path, row.get("time_limit_s", pd.NA)))
             rows.append(row)
 
