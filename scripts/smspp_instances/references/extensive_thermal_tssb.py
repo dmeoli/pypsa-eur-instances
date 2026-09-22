@@ -19,6 +19,10 @@ compared, i.e., the MILP that PyPSA would hand to its solver:
 The options after the solver name are passed to it as they are, e.g.,
 BestBdStop=<bound> asks Gurobi to stop as soon as its bound reaches the one a
 Lagrangian dual has given, which makes the two runs deliver the same thing.
+The word `relax` among them solves the continuous relaxation of the same
+model instead (Gurobi only); it is weaker than the one of the model SMS++
+writes, whose formulation of the commitment is tighter, so that an LP
+solver such as PIPS-IPM++ is compared with Gurobi on the latter.
 """
 
 import sys
@@ -86,11 +90,28 @@ def tie(n, snapshots, shared):
                 name=f"tie {copies[0]} {other}")
 
 
+def solve_relaxation(n, shared, options):
+    """Solves the continuous relaxation of the model PyPSA writes."""
+    start = time.perf_counter()
+    n.optimize.create_model(linearized_unit_commitment=False)
+    tie(n, n.snapshots, shared)
+    model = n.model.to_gurobipy().relax()
+    for key, value in options.items():
+        model.setParam(key, value)
+    model.optimize()
+    wall = time.perf_counter() - start
+    value = model.ObjVal + float(getattr(n, "objective_constant", 0.0) or 0.0)
+    print(f"[status  ] relaxation {model.Status}")
+    print(f"[value   ] {value:.10e}")
+    print(f"[time    ] solver {model.Runtime:.2f} s, whole optimize {wall:.2f} s")
+
+
 def main():
     name = sys.argv[1] if len(sys.argv) > 1 else "tuc_u20_t48_s3_b1"
     solver = sys.argv[2] if len(sys.argv) > 2 else "gurobi"
     options = {}
-    for item in sys.argv[3:]:
+    relax = "relax" in sys.argv[3:]
+    for item in (a for a in sys.argv[3:] if a != "relax"):
         key, value = item.split("=", 1)
         try:
             options[key] = float(value) if "." in value or "e" in value \
@@ -103,6 +124,10 @@ def main():
     print(f"[instance] {name}: {len(stochastic.scenarios)} scenarios, "
           f"{int(n.generators.committable.sum())} committable copies, "
           f"{len(shared)} first-stage capacities tied")
+
+    if relax:
+        solve_relaxation(n, shared, options)
+        return
 
     start = time.perf_counter()
     status = n.optimize(solver_name=solver, solver_options=options,
