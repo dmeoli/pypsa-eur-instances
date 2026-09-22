@@ -21,7 +21,10 @@ different ways, and `form` chooses among them:
   `investment_outside` of a MultiStageStochasticBlock, whose scenarios are
   grouped, in their order, into `outer` outer realizations of the same size;
   the only here-and-now Variable being the design, the tree has the same
-  extensive form as the flat network.
+  extensive form as the flat network;
+- `det_ucblock` and `det_investment`: the single scenario of the network as a
+  deterministic capacity expansion, with the design in the units of the
+  UCBlock or in an InvestmentBlock over it.
 
 A name ending in `c` is the network of the name without it with the modules
 turned off, i.e., with a continuous design, and is written next to it the
@@ -47,7 +50,8 @@ import pypsa
 from pypsa2smspp.transformation import Transformation
 
 FORMS = ("ucblock", "design_cost_outside", "investment_outside",
-         "mssb_ucblock", "mssb_investment_outside")
+         "mssb_ucblock", "mssb_investment_outside",
+         "det_ucblock", "det_investment")
 
 name = sys.argv[1] if len(sys.argv) > 1 else "mod_t168_s20_b1"
 form = sys.argv[2] if len(sys.argv) > 2 else "ucblock"
@@ -65,7 +69,7 @@ if not flat.exists() and name.endswith("c"):
         frame["p_nom_mod"] = 0.0
     n.export_to_netcdf(str(flat))
 n = pypsa.Network(str(flat))
-investment = form.endswith("investment_outside")
+investment = form.endswith("investment_outside") or form == "det_investment"
 if investment:
     # the InvestmentBlock has a continuous design: the modules are relaxed
     for frame in (n.generators, n.storage_units):
@@ -80,7 +84,10 @@ stochastic = {
     "investment_outside": investment or form == "design_cost_outside",
     }
 tag = f"{name}_{form}"
-if form.startswith("mssb"):
+if form.startswith("det"):
+    n = n.get_scenario(list(n.scenarios)[0])
+    stochastic = None
+elif form.startswith("mssb"):
     weight = n.scenario_weightings["weight"]
     scenarios = list(weight.index)
     if outer < 1 or len(scenarios) % outer:

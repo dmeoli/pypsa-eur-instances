@@ -69,4 +69,4 @@ python emit_modular_tssb.py mod_t168_s50_b10c mssb_ucblock 5
 python emit_modular_tssb.py mod_t168_s50_b10c mssb_investment_outside 5
 ```
 
-The forms `ucblock` are solved by `TSSBSCfg-IP.txt` and by `TSSBSCfg-BDS.txt` with `-k`, the forms `investment_outside` by `smspp_investmentblock_solver` with `TSSBSCfg-IB.txt`, all templates of the `TSSBlock` folder of pySMSpp.
+The forms `det_ucblock` and `det_investment` write the single scenario of a network as a deterministic capacity expansion, with the design in the units of the UCBlock or in an InvestmentBlock over it, the latter being again the ad hoc Benders decomposition. The forms `ucblock` are solved by `TSSBSCfg-IP.txt` and by `TSSBSCfg-BDS.txt` with `-k`, the forms `investment_outside` by `smspp_investmentblock_solver` with `TSSBSCfg-IB.txt`, all templates of the `TSSBlock` folder of pySMSpp.
