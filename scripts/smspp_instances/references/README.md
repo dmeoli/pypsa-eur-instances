@@ -59,3 +59,14 @@ smspp_tssb_solver -k -c <pySMSpp>/pysmspp/data/configs/TSSBlock/ -S TSSBSCfg-BDS
 ```
 
 The third command is the PyPSA reference, the network being solved as a stochastic one, and the fourth one the Benders decomposition, whose template evaluates the scenarios of a round by 8 threads (`int_BDSlv_MaxThread`, which changes the time and not the run). The values worth generating have 168 periods, from 10 to 20 buses and from 50 to 200 scenarios: there the Benders decomposition reaches the optimum PyPSA reaches, with about half its memory, it is faster than Gurobi given the same number of threads, and with more threads it is faster than Gurobi given all of them, whose branch and bound closes these instances at the root and whose time is therefore that of the linear program. The capital costs are those of a week, of the order of the saving a MW of each technology buys over it, so that the decisions are neither all zero nor all at their bound; `--capital-scale`, `--module-share` and `--max-modules` change them.
+
+The same networks with the modules turned off, i.e., with a continuous design (a name ending in `c`), are where every way SMS++ has of solving a stochastic investment can be put side by side, the InvestmentBlock over the stochastic Block (the ad hoc Benders decomposition, whose design is a capacity) included; each of them can also be written as a MultiStageStochasticBlock whose scenarios are grouped into outer realizations, which has the same extensive form as the flat network and whose leaves are the subproblems of the Benders form that `smspp_tssb_solver -k` builds:
+
+```
+python emit_modular_tssb.py mod_t168_s50_b10c ucblock
+python emit_modular_tssb.py mod_t168_s50_b10c investment_outside
+python emit_modular_tssb.py mod_t168_s50_b10c mssb_ucblock 5
+python emit_modular_tssb.py mod_t168_s50_b10c mssb_investment_outside 5
+```
+
+The forms `ucblock` are solved by `TSSBSCfg-IP.txt` and by `TSSBSCfg-BDS.txt` with `-k`, the forms `investment_outside` by `smspp_investmentblock_solver` with `TSSBSCfg-IB.txt`, all templates of the `TSSBlock` folder of pySMSpp.
