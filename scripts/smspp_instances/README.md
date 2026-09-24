@@ -27,19 +27,15 @@ python instance_generator.py <UCBlock output> <InvestmentBlock output>
 | `references/gen_pypsaeur_nuclear.py` | the same from a PyPSA-Eur network |
 | `references/gen_modular_tssb.py`, `emit_modular_tssb.py`, `solve_modular_tssb.py` | a two-stage family whose first stage builds whole modules of solar and wind, its conversion and its PyPSA reference |
 | `references/extensive_thermal_tssb.py` | the deterministic equivalent of the thermal two-stage family of pypsa2smspp (`gen_thermal_tssb.py`), solved by PyPSA |
-| `test_design_bounds.py` | a check, run with pytest, of the bounds below |
 
 ## The bounds of the extendable assets
 
-An extendable asset with no bound makes some Lagrangian subproblem unbounded,
-and a bound picked out of thin air (the former 1e7 and 1e8) is worse than
-none, since the design is bang-bang and the master of the bundle is left with
-coefficients its quadratic term cannot be compared with. The generators give
-an extendable asset with no bound one read off the demand
-(`bound_extendable_assets` of pypsa2smspp, `SMSPP_DESIGN_BOUNDS` choosing
-among `physical`, `none` and `sentinel`), which is a scale and not a valid
-bound: an intermittent generator produces its capacity times its
-availability, and may have to be built well beyond the peak of the load.
-`verify_extendable_bounds` therefore solves the network and doubles every
-bound whose multiplier says it cuts the optimum, until none does, which is
-exact for a linear network; the reference is taken from that solution.
+An asset PyPSA gives no `p_nom_max` keeps an infinite `MaxCapacityDesign`,
+which is what the conversion writes, and the vector carries a finite entry
+only where PyPSA has one. A bound picked out of thin air (the former 1e7 and
+1e8) is worse than none: the design is bang-bang, so the value of the
+component becomes the bound times the investment cost and the master of the
+bundle is left with coefficients its quadratic term cannot be compared with.
+An infinite bound is safe here because an extendable asset with zero capital
+cost is made non-extendable upstream, hence a design with a cost cannot run
+away.

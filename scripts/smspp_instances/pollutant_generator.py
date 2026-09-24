@@ -14,18 +14,11 @@ limit becomes a pollutant budget constraint of the UCBlock; the netCDF file of
 the UCBlock is written in the output directory, and the reference values are
 printed in the format of the REF_OBJ entries of the SMS++ batch files.
 
-The extendable assets whose bound is infinite are given one that comes from
-the demand of the network itself (bound_extendable_assets of pypsa2smspp),
-since a design with no bound makes the Lagrangian subproblem unbounded while a
-bound picked out of thin air is worse than no bound at all: the design is
-bang-bang, the value of the component becomes the bound times the investment
-cost, and the master problem of the bundle ends up with coefficients its
-quadratic term cannot be compared with. SMSPP_DESIGN_BOUNDS chooses among the
-three ways of writing the instances, "physical" (the default), "none" and
-"sentinel", so that the same network can be run in all of them. The physical
-bound is a scale and not a valid bound, hence it is enlarged wherever the
-optimum reaches it (verify_extendable_bounds of pypsa2smspp), both before the
-limits are read off the unconstrained dispatch and once they are added.
+An extendable asset PyPSA gives no bound keeps an infinite one, since a bound
+picked out of thin air is worse than none at all: the design is bang-bang, the
+value of the component becomes the bound times the investment cost, and the
+master problem of the bundle ends up with coefficients its quadratic term
+cannot be compared with.
 
 Note that the Excel networks are not deterministic, hence the references must
 be taken from the same run that writes the files.
@@ -48,9 +41,7 @@ from conftest import create_test_config, test_cases
 from network_definition import NetworkDefinition
 from pypsa2smspp.transformation import Transformation
 from pypsa2smspp.network_correction import (add_slack_unit,
-                                            bound_extendable_assets,
-                                            clean_ciclicity_storage,
-                                            verify_extendable_bounds)
+                                            clean_ciclicity_storage)
 
 
 # =============================================================================
@@ -115,11 +106,6 @@ def emissions(n, attribute):
     return total
 
 
-def design_bounds_mode():
-    """The way the design bounds are written, from SMSPP_DESIGN_BOUNDS."""
-    return os.environ.get("SMSPP_DESIGN_BOUNDS", "physical")
-
-
 def generate(name, case, rates, limits, out_dir):
     """Write the instance of one variant and return its reference objective."""
     paths = {p.stem: p for p in test_cases["xlsx_paths"]}
@@ -127,7 +113,6 @@ def generate(name, case, rates, limits, out_dir):
     n = NetworkDefinition(create_test_config(paths[case])).n
     n = clean_ciclicity_storage(n)
     n = add_slack_unit(n)
-    n = bound_extendable_assets(n, design_bounds_mode())
 
     for attribute, by_carrier in rates.items():
         if attribute not in n.carriers.columns:
@@ -138,13 +123,15 @@ def generate(name, case, rates, limits, out_dir):
     def solve(m):
         m.optimize(solver_name=SOLVER_NAME)
 
-    n, free = verify_extendable_bounds(n, solve)
+    solve(n)
+    free = n
     for i, (gc_type, attribute, sense, fraction) in enumerate(limits):
         n.add("GlobalConstraint", f"limit_{i}", type=gc_type,
               carrier_attribute=attribute, sense=sense,
               constant=fraction * dispatch_value(free, gc_type, attribute))
 
-    network, solved = verify_extendable_bounds(n, solve)
+    solve(n)
+    network, solved = n, n
     obj_pypsa = float(solved.objective + getattr(solved, "objective_constant", 0.0))
 
     file_name = f"smspp_{case}_{name}"

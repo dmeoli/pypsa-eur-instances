@@ -38,12 +38,9 @@ from _pypsa2smspp import TEST  # noqa: E402, the test networks of pypsa2smspp
 
 from conftest import create_test_config, test_cases
 from network_definition import NetworkDefinition
-from pollutant_generator import design_bounds_mode
 from pypsa2smspp.transformation import Transformation
 from pypsa2smspp.network_correction import (add_slack_unit,
-                                            bound_extendable_assets,
-                                            clean_ciclicity_storage,
-                                            verify_extendable_bounds)
+                                            clean_ciclicity_storage)
 
 
 # the seed of each case, so that its network is always the same one
@@ -78,10 +75,6 @@ def build(xlsx_path):
     n = clean_ciclicity_storage(n)
     if "sector" not in xlsx_path.name:
         n = add_slack_unit(n)
-    # an extendable asset with no bound makes a Lagrangian subproblem
-    # unbounded, and one bounded out of thin air makes the master problem of
-    # the bundle ill-conditioned [see pollutant_generator]
-    n = bound_extendable_assets(n, design_bounds_mode())
     return n, getattr(parser, "solver_name", "highs")
 
 
@@ -132,12 +125,10 @@ def main(argv):
         case_name = Path(xlsx_path).stem
         n, solver_name = build(Path(xlsx_path))
 
-        # the reference is the objective value of PyPSA on the same network,
-        # whose bounds are first enlarged where the optimum reaches them
-        n, reference = verify_extendable_bounds(
-            n, lambda m: m.optimize(solver_name=solver_name))
-        obj_pypsa = float(reference.objective +
-                          getattr(reference, "objective_constant", 0.0))
+        # the reference is the objective value of PyPSA on the same network
+        n.optimize(solver_name=solver_name)
+        obj_pypsa = float(n.objective +
+                          getattr(n, "objective_constant", 0.0))
 
         obj_uc = write(n, case_name, True, uc_dir)
         obj_inv = write(n, case_name, False, inv_dir)
