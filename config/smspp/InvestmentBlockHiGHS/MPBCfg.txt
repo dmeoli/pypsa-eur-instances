@@ -63,7 +63,7 @@ intMaxThread    1 # single-threaded for deterministic master reproducibility
                   # declared infeasible on tolerance when the model is badly
                   # scaled, and the bundle reads that as a numerical error
 
-5 # number of double parameters
+3 # number of double parameters
 
 # now all the double parameters
 dblRelAcc       1e-08 # relative accuracy required to solution
@@ -79,8 +79,9 @@ dblRAccSol      1e-08 # relative accuracy of the solution pool
 #OptimalityTol  1e-09 # how much a reduced cost of the master may be off
 
 # All specific HiGHS parameter (uncomment based on Solver)
-dblFAccSol                    1e-9 # primal_feasibility_tolerance of HiGHS
-dual_feasibility_tolerance    1e-9
+# (not tighter: at 1e-9 the QP solver of HiGHS fails on the master)
+#primal_feasibility_tolerance     1e-9
+#dual_feasibility_tolerance       1e-9
 
 0 # number of string parameters
 
