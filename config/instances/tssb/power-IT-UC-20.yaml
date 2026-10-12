@@ -36,7 +36,7 @@ stochastic_scenarios:
 
 clustering:
   temporal:
-    resolution_elec: 48c24
+    resolution_elec: 7c24
 
 conventional:
   unit_commitment: true
@@ -63,4 +63,4 @@ solving:
     noisy_costs: false
   solver:
     name: [gurobi, smspp, smspp, smspp]
-    options: [gurobi-default, smspp-tssb, smspp-tssb-lds, smspp-tssb-ldrec]
+    options: [gurobi-default, smspp-tssb-uc, smspp-tssb-lds, smspp-tssb-ldrec]
