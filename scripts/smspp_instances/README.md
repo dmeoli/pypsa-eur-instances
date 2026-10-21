@@ -20,13 +20,23 @@ python instance_generator.py <UCBlock output> <InvestmentBlock output>
 
 | script | what it writes |
 |---|---|
-| `instance_generator.py` | every Excel test network, in both the UCBlock and the InvestmentBlock form, from one seeded build (the InvestmentBlock form with `config/smspp/InvestmentBlock-BS2`) |
+| `instance_generator.py` | every Excel test network, in both the UCBlock and the InvestmentBlock form, from one seeded build (the InvestmentBlock form with `config/smspp/InvestmentBlock-BS2`); with `--carriers`, those with buses that are not electric also in the carrier form, `<case>_carriers` |
 | `pollutant_generator.py` | one of them with the global constraints of PyPSA on the dispatch, which pypsa2smspp translates into the pollutant budgets of UCBlock |
-| `tree_instance_generator.py` | the scenario trees of the stochastic batches, from the networks `gen_tree_instance.py` of pypsa2smspp writes |
+| `tree_instance_generator.py` | the scenario trees of the stochastic batches, from the networks `gen_tree_instance.py` of pypsa2smspp writes; with `--tssb`, also the flat two-stage equivalent of a tree, and with `--carriers`, every form also in the carrier form, `<file>_carriers` |
 | `nuclear_generator.py` | a single-bus network whose nuclear generator is written as a ThermalUnitBlock and then as a NuclearUnitBlock with one family of operating rules at a time; PyPSA has no such rules, so the reference is the optimum of SMS++ itself |
 | `references/gen_pypsaeur_nuclear.py` | the same from a PyPSA-Eur network |
 | `references/gen_modular_tssb.py`, `emit_modular_tssb.py`, `solve_modular_tssb.py` | a two-stage family whose first stage builds whole modules of solar and wind, its conversion and its PyPSA reference |
 | `references/extensive_thermal_tssb.py` | the deterministic equivalent of the thermal two-stage family of pypsa2smspp (`gen_thermal_tssb.py`), solved by PyPSA |
+
+## The carrier form
+
+With `--carriers`, a network whose buses are not all electric is also
+written with `multi_carrier=True` of pypsa2smspp: the buses of each carrier of
+the network (AC, H2, gas, heat, the CO2 ones, ...) are the nodes of a carrier
+of the UCBlock, a link between two carriers is a unit with an output on each
+of them, and a link within one carrier, the CO2 pipeline of PyPSA-Eur for
+instance, is a line of its network, with a design if it is extendable. It is
+the same problem as the network form, and it is held to the same reference.
 
 ## The bounds of the extendable assets
 

@@ -15,11 +15,21 @@ batch `InvestmentBlock/batches/batch-stochastic` runs are written again with
 the investment stated once outside the scenarios, in an InvestmentBlock
 wrapping the stochastic Block, in the two forms that batch holds: the tree
 itself and its flat two-stage equivalent over the product of the scenarios.
+With --tssb, the trees that the batch
+`TwoStageStochasticBlock/batches/batch-pypsa` runs are written as their flat
+two-stage equivalent too, with the design in the UCBlock of each scenario
+and tied by the non-anticipativity constraint.
+
+With --carriers, every form is also written with the buses of each carrier
+of the network (AC, H2, gas, the CO2 ones, ...) in a carrier of the UCBlock
+(`multi_carrier=True` of the conversion), the links between two carriers
+being units, as <file>_carriers.nc, held to the same reference.
 
 Usage:
     python tree_instance_generator.py <MSSB output directory>
                                       <InvestmentBlock output directory>
-                                      [tree ...]
+                                      [--tssb <TSSB output directory>]
+                                      [--carriers] [tree ...]
 
 with no tree, every tree of TREES is written.
 """
@@ -47,8 +57,9 @@ SOLVER_NAME = "gurobi"
 PARAMETERS = ["demand", "renewable_maxpower"]
 
 # name of the tree -> the file names of the forms it is written in: the
-# MultiStageStochasticBlock one, and the ones with the investment outside,
-# where "mssb" is the tree itself and "tssb" its flat equivalent
+# MultiStageStochasticBlock one, the flat two-stage one ("tssb", written with
+# --tssb), and the ones with the investment outside, where "mssb" is the tree
+# itself and "tssb" its flat equivalent
 TREES = {
     "network_small_fewsectors__snap24__c3_d3_renewables": {
         "mssb": "smspp_network_small_fewsectors__snap24__c3_d3_renewables.nc",
@@ -59,6 +70,7 @@ TREES = {
     },
     "network_small_fewsectors__snap24__c3_d3_both": {
         "mssb": "smspp_network_small_fewsectors__snap24__c3_d3_both.nc",
+        "tssb": "smspp_network_small_fewsectors__snap24__c3_d3_both_flat.nc",
         "investment_tssb": "smspp_stoch_tssb_c3_d3_both.nc",
         "investment_mssb": "smspp_stoch_mssb_c3_d3_both.nc",
     },
@@ -68,30 +80,33 @@ TREES = {
 }
 
 
-def write(network, tree, name, form, out_dir, file_name):
+def write(network, tree, name, form, out_dir, file_name, multi_carrier):
     """
     Writes one form of a tree, returning the file it has written.
 
-    The forms are the three of TREES: the tree as a MultiStageStochasticBlock,
-    and the tree and its flat equivalent with the investment outside.
+    The forms are the four of TREES: the tree as a MultiStageStochasticBlock,
+    its flat equivalent as a TwoStageStochasticBlock, and the tree and its
+    flat equivalent with the investment outside; with multi_carrier the
+    buses of each carrier are in a carrier of the UCBlock.
     """
     stochastic = {"parameters": PARAMETERS}
-    if form == "investment_tssb":
+    if form in ("tssb", "investment_tssb"):
         stochastic["stochastic_type"] = "tssb"
-        stochastic["investment_outside"] = True
+        stochastic["investment_outside"] = ( form == "investment_tssb" )
     else:
         stochastic["stochastic_type"] = "mssb"
         stochastic["tree"] = {"groups": tree["groups"]}
         stochastic["investment_outside"] = ( form == "investment_mssb" )
 
     transformation = Transformation(
-        name=f"{name}_{form}",
+        name=f"{name}_{form}" + ("_carriers" if multi_carrier else ""),
         configfile="TSSBlock/TSSBSCfg.txt",
         enable_thermal_units=False,
         # the design variables of the plain tree are those of the UCBlock of
         # each scenario; with the investment outside they are the ones of the
         # InvestmentBlock above it, and the UCBlock carries none
-        capacity_expansion_ucblock=( form == "mssb" ),
+        capacity_expansion_ucblock=( form in ("mssb", "tssb") ),
+        multi_carrier=multi_carrier,
         workdir=str(OUT),
         stochastic_parameters=stochastic,
         overwrite=True,
@@ -115,7 +130,7 @@ def write(network, tree, name, form, out_dir, file_name):
         print(f"    [{form}] SMS++ gave no answer: {error}", flush=True)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    temp = OUT / f"smspp_{name}_{form}_temp.nc"
+    temp = OUT / f"smspp_{transformation.name}_temp.nc"
     shutil.move(temp, out_dir / file_name)
 
     return out_dir / file_name, value
@@ -128,10 +143,18 @@ def main(argv):
 
     mssb_dir = Path(argv[1]).resolve()
     investment_dir = Path(argv[2]).resolve()
-    wanted = set(argv[3:])
+    args = list(argv[3:])
+    tssb_dir = None
+    if "--tssb" in args:
+        k = args.index("--tssb")
+        tssb_dir = Path(args[k + 1]).resolve()
+        del args[k:k + 2]
+    carriers = "--carriers" in args
+    wanted = set(args) - {"--carriers"}
+    dirs = {"mssb": mssb_dir, "tssb": tssb_dir}
 
     OUT.mkdir(parents=True, exist_ok=True)
-    mssb_refs, investment_refs = [], []
+    refs = {"mssb": [], "tssb": [], "investment": []}
 
     for name, forms in TREES.items():
         if wanted and ( name not in wanted ):
@@ -152,21 +175,28 @@ def main(argv):
               flush=True)
 
         for form, file_name in forms.items():
-            out_dir = mssb_dir if form == "mssb" else investment_dir
-            start = time.time()
-            written, value = write(network, tree, name, form, out_dir,
-                                   file_name)
-            smspp = "no answer" if value is None else f"{value:.9e}"
-            print(f"    {form}: {written.name}, SMS++ = {smspp} "
-                  f"({time.time() - start:.1f} s)", flush=True)
+            if form == "tssb" and tssb_dir is None:
+                continue
+            out_dir = dirs.get(form, investment_dir)
+            for multi_carrier in (False, True) if carriers else (False,):
+                if multi_carrier:
+                    file_name = file_name.replace(".nc", "_carriers.nc")
+                start = time.time()
+                written, value = write(network, tree, name, form, out_dir,
+                                       file_name, multi_carrier)
+                smspp = "no answer" if value is None else f"{value:.9e}"
+                print(f"    {form}: {written.name}, SMS++ = {smspp} "
+                      f"({time.time() - start:.1f} s)", flush=True)
 
-            entry = f"REF_OBJ[{file_name}]={obj_pypsa:.9e}"
-            ( mssb_refs if form == "mssb" else investment_refs ).append( entry )
+                refs[form if form in dirs else "investment"].append(
+                    f"REF_OBJ[{file_name}]={obj_pypsa:.9e}")
 
     print("\n# MultiStageStochasticBlock/batches/batch-pypsa")
-    print("\n".join(mssb_refs))
+    print("\n".join(refs["mssb"]))
+    print("\n# TwoStageStochasticBlock/batches/batch-pypsa")
+    print("\n".join(refs["tssb"]))
     print("\n# InvestmentBlock/batches/batch-stochastic")
-    print("\n".join(investment_refs))
+    print("\n".join(refs["investment"]))
     return 0
 
 

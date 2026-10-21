@@ -18,10 +18,15 @@ so two builds of the same Excel file give two different networks; the seed of
 each case is therefore fixed here, which makes the instances reproducible and
 the two forms of a case the same problem.
 
+With --carriers, each network whose buses are not all electric is also
+written with the buses of each carrier in a carrier of the UCBlock
+(`multi_carrier=True` of the conversion), in both forms and held to the same
+reference, as smspp_<case>_carriers.nc.
+
 Usage:
     python instance_generator.py <UCBlock output directory>
                                  <InvestmentBlock output directory>
-                                 [case ...]
+                                 [--carriers] [case ...]
 
 with no case, every Excel test network is written.
 """
@@ -41,6 +46,7 @@ from network_definition import NetworkDefinition
 from pypsa2smspp.transformation import Transformation
 from pypsa2smspp.network_correction import (add_slack_unit,
                                             clean_ciclicity_storage)
+from pypsa2smspp.utils import ELECTRIC_BUS_CARRIERS
 
 
 # the seed of each case, so that its network is always the same one
@@ -78,15 +84,26 @@ def build(xlsx_path):
     return n, getattr(parser, "solver_name", "highs")
 
 
-def write(n, case_name, ucblock, out_dir):
+def has_carriers(n):
+    """True if some bus of n is not electric, i.e. n has a carrier form."""
+    kinds = set(n.buses.carrier.fillna("").astype(str))
+    return not kinds <= set(ELECTRIC_BUS_CARRIERS)
+
+
+def write(n, case_name, ucblock, out_dir, multi_carrier=False):
     """
-    Writes one form of a case, returning the objective value SMS++ computes.
+    Writes one form of a case, returning the objective value SMS++ computes,
+    None if it gives none.
 
     The file `Transformation.run()` hands to SMS++ is the instance, hence it
-    is moved into out_dir under the name of the case.
+    is moved into out_dir under the name of the case; whether the run then
+    solves it is another matter, the batch being what holds the instance to
+    its reference, so an answer SMS++ refuses to give is reported and no
+    more.
     """
     transformation = Transformation(
         capacity_expansion_ucblock=ucblock,
+        multi_carrier=multi_carrier,
         workdir=OUT,
         name=case_name,
         overwrite=True,
@@ -96,13 +113,18 @@ def write(n, case_name, ucblock, out_dir):
         configfile="auto" if ucblock else IB_CONFIG,
         pysmspp_options={},
     )
-    transformation.run(n.copy(), verbose=False)
+    value = None
+    try:
+        transformation.run(n.copy(), verbose=False)
+        value = float(transformation.result.objective_value)
+    except Exception as error:
+        print(f"    [{case_name}] SMS++ gave no answer: {error}", flush=True)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     shutil.move(OUT / f"smspp_{case_name}_temp.nc",
                 out_dir / f"smspp_{case_name}.nc")
 
-    return float(transformation.result.objective_value)
+    return value
 
 
 def main(argv):
@@ -112,7 +134,8 @@ def main(argv):
 
     uc_dir = Path(argv[1]).resolve()
     inv_dir = Path(argv[2]).resolve()
-    wanted = set(argv[3:])
+    carriers = "--carriers" in argv[3:]
+    wanted = set(argv[3:]) - {"--carriers"}
 
     cases = [(p, i) for p, i in zip(test_cases["xlsx_paths"], test_cases["ids"])
              if ( (not wanted) or (Path(p).stem in wanted) )
@@ -125,20 +148,28 @@ def main(argv):
         case_name = Path(xlsx_path).stem
         n, solver_name = build(Path(xlsx_path))
 
-        # the reference is the objective value of PyPSA on the same network
-        n.optimize(solver_name=solver_name)
-        obj_pypsa = float(n.objective +
-                          getattr(n, "objective_constant", 0.0))
+        # the reference is the objective value of PyPSA on the same network,
+        # solved as a copy, PyPSA not copying a network it has solved
+        reference = n.copy()
+        reference.optimize(solver_name=solver_name)
+        obj_pypsa = float(reference.objective +
+                          getattr(reference, "objective_constant", 0.0))
 
-        obj_uc = write(n, case_name, True, uc_dir)
-        obj_inv = write(n, case_name, False, inv_dir)
+        names = [(case_name, False)]
+        if carriers and has_carriers(n):
+            names.append((f"{case_name}_carriers", True))
+        for name, multi_carrier in names:
+            obj_uc = write(n, name, True, uc_dir, multi_carrier)
+            obj_inv = write(n, name, False, inv_dir, multi_carrier)
 
-        print(f"{case_name}: PyPSA = {obj_pypsa:.9e}  "
-              f"UCBlock = {obj_uc:.9e}  InvestmentBlock = {obj_inv:.9e}",
-              flush=True)
+            smspp = ["no answer" if v is None else f"{v:.9e}"
+                     for v in (obj_uc, obj_inv)]
+            print(f"{name}: PyPSA = {obj_pypsa:.9e}  "
+                  f"UCBlock = {smspp[0]}  InvestmentBlock = {smspp[1]}",
+                  flush=True)
 
-        uc_refs.append(f"REF_OBJ[smspp_{case_name}.nc]={obj_pypsa:.9e}")
-        inv_refs.append(f"REF_OBJ[smspp_{case_name}.nc]={obj_pypsa:.9e}")
+            uc_refs.append(f"REF_OBJ[smspp_{name}.nc]={obj_pypsa:.9e}")
+            inv_refs.append(f"REF_OBJ[smspp_{name}.nc]={obj_pypsa:.9e}")
 
     print("\n# UCBlock/batches/batch-pypsa")
     print("\n".join(uc_refs))
