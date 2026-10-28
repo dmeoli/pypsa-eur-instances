@@ -3,10 +3,11 @@
 # The stochastic capacity expansion of the European power system in 2030 built
 # by the generator of plan4res/resilient (ENVIS NECPEssentials, 16 regions,
 # hourly steps, continuous investment, no unit commitment), from 1 to 4 weeks
-# starting on 2 July and with 21 to 105 scenarios of the demand, solved by PyPSA
-# with GUROBI and by SMS++ on the TwoStageStochasticBlock. With the
-# configurations of SMS++ for BundleSolver 2.0 the Benders decomposition is the
-# option smspp-tssb-bds, to be added to solving.solver.
+# starting on 2 July and with 21 to 105 scenarios of the demand and of the
+# availability of the renewables, solved by PyPSA with GUROBI and by SMS++ on
+# the TwoStageStochasticBlock. With the configurations of SMS++ for
+# BundleSolver 2.0 the Benders decomposition is the option smspp-tssb-bds,
+# to be added to solving.solver.
 #
 #   snakemake -c 32 solve_resilient_all \
 #     --configfile config/instances/resilient/expansion-power-EU16.yaml
@@ -33,49 +34,49 @@ resilient:
       scenarios: 21
       extendable: true
       committable: false
-      stochastic: [demand]
+      stochastic: [demand, renewables]
     w1_s52:
       begin: 02/07/2030
       end: 08/07/2030
       scenarios: 52
       extendable: true
       committable: false
-      stochastic: [demand]
+      stochastic: [demand, renewables]
     w1_s105:
       begin: 02/07/2030
       end: 08/07/2030
       scenarios: 105
       extendable: true
       committable: false
-      stochastic: [demand]
+      stochastic: [demand, renewables]
     w2_s21:
       begin: 02/07/2030
       end: 15/07/2030
       scenarios: 21
       extendable: true
       committable: false
-      stochastic: [demand]
+      stochastic: [demand, renewables]
     w2_s105:
       begin: 02/07/2030
       end: 15/07/2030
       scenarios: 105
       extendable: true
       committable: false
-      stochastic: [demand]
+      stochastic: [demand, renewables]
     w4_s21:
       begin: 02/07/2030
       end: 29/07/2030
       scenarios: 21
       extendable: true
       committable: false
-      stochastic: [demand]
+      stochastic: [demand, renewables]
     w4_s105:
       begin: 02/07/2030
       end: 29/07/2030
       scenarios: 105
       extendable: true
       committable: false
-      stochastic: [demand]
+      stochastic: [demand, renewables]
 
 solving:
   options:
@@ -83,6 +84,20 @@ solving:
     transmission_losses: 0
     linearized_unit_commitment: false
     noisy_costs: false
+  solver_options:
+    # smspp-tssb with the run-of-river generators of the generator, whose
+    # carrier is hydro, among the intermittent ones: their availability comes
+    # in scenarios as that of wind and solar does
+    smspp-tssb-resilient:
+      capacity_expansion_ucblock: true
+      configfile: config/smspp/TSSBlock/TSSBCfg_grb.txt
+      intermittent_carriers: [solar, solar-hsat, onwind, offwind-ac, offwind-dc,
+                              offwind-float, PV, wind, ror, hydro]
+      stochastic_parameters:
+        stochastic_type: tssb
+        parameters:
+        - demand
+        - renewable_maxpower
   solver:
     name: [gurobi, smspp]
-    options: [gurobi-default, smspp-tssb]
+    options: [gurobi-default, smspp-tssb-resilient]
