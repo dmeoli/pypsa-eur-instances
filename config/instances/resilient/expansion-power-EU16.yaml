@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../schema.default.json
+
+# The stochastic capacity expansion of the European power system in 2030 built
+# by the generator of plan4res/resilient (ENVIS NECPEssentials, 16 regions,
+# hourly steps, continuous investment, no unit commitment), from 1 to 4 weeks
+# starting on 2 July and with 21 to 105 scenarios of the demand, solved by PyPSA
+# with GUROBI and by SMS++ on the TwoStageStochasticBlock. With the
+# configurations of SMS++ for BundleSolver 2.0 the Benders decomposition is the
+# option smspp-tssb-bds, to be added to solving.solver.
+#
+#   snakemake -c 32 solve_resilient_all \
+#     --configfile config/instances/resilient/expansion-power-EU16.yaml
+
+run:
+  prefix: "resilient-expansion-power-EU16"
+  name: all
+  disable_progressbar: true
+  shared_resources:
+    policy: false
+    exclude: []
+  use_shadow_directory: false
+
+foresight: overnight
+
+resilient:
+  generator:
+    url: https://github.com/plan4res/resilient.git
+    commit: b2629d4458
+  cases:
+    w1_s21:
+      begin: 02/07/2030
+      end: 08/07/2030
+      scenarios: 21
+      extendable: true
+      committable: false
+      stochastic: [demand]
+    w1_s52:
+      begin: 02/07/2030
+      end: 08/07/2030
+      scenarios: 52
+      extendable: true
+      committable: false
+      stochastic: [demand]
+    w1_s105:
+      begin: 02/07/2030
+      end: 08/07/2030
+      scenarios: 105
+      extendable: true
+      committable: false
+      stochastic: [demand]
+    w2_s21:
+      begin: 02/07/2030
+      end: 15/07/2030
+      scenarios: 21
+      extendable: true
+      committable: false
+      stochastic: [demand]
+    w2_s105:
+      begin: 02/07/2030
+      end: 15/07/2030
+      scenarios: 105
+      extendable: true
+      committable: false
+      stochastic: [demand]
+    w4_s21:
+      begin: 02/07/2030
+      end: 29/07/2030
+      scenarios: 21
+      extendable: true
+      committable: false
+      stochastic: [demand]
+    w4_s105:
+      begin: 02/07/2030
+      end: 29/07/2030
+      scenarios: 105
+      extendable: true
+      committable: false
+      stochastic: [demand]
+
+solving:
+  options:
+    skip_iterations: true
+    transmission_losses: 0
+    linearized_unit_commitment: false
+    noisy_costs: false
+  solver:
+    name: [gurobi, smspp]
+    options: [gurobi-default, smspp-tssb]

@@ -142,6 +142,7 @@ include: "rules/retrieve.smk"
 include: "rules/build_electricity.smk"
 include: "rules/build_sector.smk"
 include: "rules/solve_electricity.smk"
+include: "rules/resilient.smk"
 include: "rules/postprocess.smk"
 
 if RUN_STOCHASTIC_POSTPROCESS:
