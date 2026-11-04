@@ -9,6 +9,8 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+* SMS++ configurations: the Benders decomposition (``BDSCfg.txt``) and the bundle of the InvestmentBlock (``IBBundleCfg.txt``) stop at the relative gap of 1e-5, the ``BarConvTol`` of the ``gurobi-default`` solver options of PyPSA, so that every method of the comparison stops at the same accuracy (they stopped at 1e-6).
+
 * Fix: ``build_swiss_energy_balances`` reads the October 2026 edition of the Swiss energy balances (data for 2000-2025), which renamed some table rows, as in PyPSA-Eur (https://github.com/PyPSA/pypsa-eur/pull/2380).
 
 * Fix: ``atlite.plot_availability_matrix`` config option for :mod:`determine_availability_matrix` and :mod:`determine_availability_matrix_MD_UA` scripts, changed their output and behaviour to align consistently (https://github.com/PyPSA/pypsa-eur/pull/2173).

@@ -22,9 +22,11 @@ intMaxThread         8  # threads evaluating the subproblems of a round, at
                         # for every value, only faster, and 1 evaluates them
                         # one after the other
 
-1  # number of double parameters
+2  # number of double parameters
 
 # now all the double parameters
+dblRelAcc   1e-5   # relative gap between the bounds at which it stops, the
+                   # BarConvTol of the monolithic run of TSSBCfg_grb.txt
 dblMaxTime  43200  # seconds for the whole call: the master gets what is
                    # left of it, the loop stops at the first round that
                    # finds it over
